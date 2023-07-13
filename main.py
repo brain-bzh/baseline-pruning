@@ -44,6 +44,7 @@ from resnet import *
 
 from utils import ExponentialMovingAverage, RandomMixup, RandomCutmix
 from torch.utils.data.dataloader import default_collate
+import pruning_utils as pruning
 
 accelerator = Accelerator(split_batches=True)
 
@@ -68,6 +69,7 @@ parser.add_argument('--save-model', type=str, default="")
 parser.add_argument('--load-model', type=str, default="")
 parser.add_argument('--test-only', action="store_true")
 parser.add_argument('--no-warmup', action="store_true")
+parser.add_argument('--pruning-period', type=int, default=1)
 args = parser.parse_args()
 args.steps = 10 * (args.steps // 10)
 if args.weight_decay < 0:
@@ -185,6 +187,12 @@ if args.load_model != "":
 if new_size:
     print("WARNING!!!! CHANGE OF SIZE WHEN LOADING MODEL!!!!")
 
+if args.pruning_period != 1:
+    pruning.prune_network(net, args.pruning_period)
+    remaining, total = pruning.count_remaining_parameters(net)
+    print(f'Remaining parameters: {remaining}, total parameters: {total}, remaining rate: {remaining / total * 100}%')
+
+
 if accelerator.is_main_process:
     summ = summary(net, input_size = input_size, verbose=0)
     accelerator.print("Total mult-adds: {:d} ({:,})".format(summ.total_mult_adds, summ.total_mult_adds))
@@ -226,6 +234,7 @@ peak, peak_step, peak_ema, peak_step_ema = 0, 0, 0, 0
 # test function
 def test():
     net.eval()
+    pruning.refresh_pruning(net)
     correct = 0
     total = 0
     correct_ema = 0
@@ -282,7 +291,7 @@ for era in range(1 if args.adam or args.no_warmup else 0, args.eras + 1):
 
     if start_time == 0:
         start_time = time.time()
-    
+
     while step < total_steps_for_era:
         for batch_idx, (inputs, targets) in enumerate(train_loader):
             step += 1
@@ -303,6 +312,7 @@ for era in range(1 if args.adam or args.no_warmup else 0, args.eras + 1):
             train_losses = train_losses[-len(train_loader):]
 
             scheduler.step()
+            pruning.refresh_pruning(net)
             lr = scheduler.get_last_lr()[0]
 
             if time.time() - last_print > 0.05 or batch_idx + 1 == len(train_loader):
@@ -311,7 +321,7 @@ for era in range(1 if args.adam or args.no_warmup else 0, args.eras + 1):
 
             step_time = (time.time() - start_time) / (args.steps * (era - 1 if era > 0 else 0) + step + (5 * len(train_loader) if not args.adam and era > 0 else 0))
             remaining_time = (total_steps_for_era - step + (args.eras - era) * args.steps) * step_time
-            
+
         score, score_ema = test()
         if 100 * score > peak:
             peak = 100 * score
@@ -337,7 +347,10 @@ accelerator.print("Peak perf is {:6.2f}% at epoch {:d} ({:6.2f}% at epoch {:d})"
 accelerator.print()
 accelerator.print()
 
+if args.pruning_period != 1:
+    pruning.remove_parameters(net)
+
 if args.save_model != "":
-    torch.save(net.state_dict(), args.save_model + ".pt")
+    torch.save(net.state_dict(), args.save_model + ("_pruned" if args.pruning_period != 1 else "") + ".pt")
     torch.save(ema.module.state_dict(), args.save_model + "_ema.pt")
 
