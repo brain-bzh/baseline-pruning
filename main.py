@@ -351,6 +351,6 @@ if args.pruning_period != 1:
     pruning.remove_parameters(net)
 
 if args.save_model != "":
-    torch.save(net.state_dict(), args.save_model + ("_pruned" if args.pruning_period != 1 else "") + ".pt")
+    torch.save(net.state_dict(), args.save_model + ".pt")
     torch.save(ema.module.state_dict(), args.save_model + "_ema.pt")
 
