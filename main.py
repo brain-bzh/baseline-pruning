@@ -70,6 +70,7 @@ parser.add_argument('--load-model', type=str, default="")
 parser.add_argument('--test-only', action="store_true")
 parser.add_argument('--no-warmup', action="store_true")
 parser.add_argument('--pruning-period', type=int, default=1)
+parser.add_argument('--skip-first', action="store_true")
 args = parser.parse_args()
 args.steps = 10 * (args.steps // 10)
 if args.weight_decay < 0:
@@ -188,7 +189,7 @@ if new_size:
     print("WARNING!!!! CHANGE OF SIZE WHEN LOADING MODEL!!!!")
 
 if args.pruning_period != 1:
-    pruning.prune_network(net, args.pruning_period)
+    pruning.prune_network(net, args.pruning_period, args.skip_first)
     remaining, total = pruning.count_remaining_parameters(net)
     print(f'Remaining parameters: {remaining}, total parameters: {total}, remaining rate: {remaining / total * 100}%')
 

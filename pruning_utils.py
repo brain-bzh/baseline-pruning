@@ -34,8 +34,11 @@ def generate_mask(parameters: torch.Tensor, period: int):
     return mask
 
 
-def prune_network(model: torch.nn.Module, period: int):
+def prune_network(model: torch.nn.Module, period: int, skip_first: bool = False):
     for m in model.modules():
+        if skip_first and isinstance(m, torch.nn.Conv2d):
+            if m.in_channels == 3:
+                continue
         if isinstance(m, torch.nn.Conv2d) or isinstance(m, torch.nn.Linear):
             mask = generate_mask(m.weight, period)
             # prune.custom_from_mask(module=m, name='weight', mask=mask)
