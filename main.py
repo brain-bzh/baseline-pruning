@@ -234,7 +234,8 @@ peak, peak_step, peak_ema, peak_step_ema = 0, 0, 0, 0
 # test function
 def test():
     net.eval()
-    pruning.refresh_pruning(net)
+    if args.pruning_period != 1:
+        pruning.refresh_pruning(net)
     correct = 0
     total = 0
     correct_ema = 0
@@ -303,6 +304,8 @@ for era in range(1 if args.adam or args.no_warmup else 0, args.eras + 1):
 
             accelerator.backward(loss)
             optimizer.step()
+            if args.pruning_period != 1:
+                pruning.refresh_pruning(net)
             if step % 32 == 0:
                 ema.update_parameters(net)
                 if era == 0:
@@ -312,7 +315,6 @@ for era in range(1 if args.adam or args.no_warmup else 0, args.eras + 1):
             train_losses = train_losses[-len(train_loader):]
 
             scheduler.step()
-            pruning.refresh_pruning(net)
             lr = scheduler.get_last_lr()[0]
 
             if time.time() - last_print > 0.05 or batch_idx + 1 == len(train_loader):

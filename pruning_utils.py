@@ -57,6 +57,7 @@ def count_remaining_parameters(model: torch.nn.Module):
 
 
 def remove_parameters(model: torch.nn.Module):
-    for m in model.modules():
-        if hasattr(m, 'weight_orig'):
-            prune.remove(m, 'weight')
+    for m in model.parameters():
+        if hasattr(m, 'apply_mask'):
+            m.apply_mask()
+            delattr(m, 'apply_mask')
