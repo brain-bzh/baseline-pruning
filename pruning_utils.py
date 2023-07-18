@@ -1,6 +1,6 @@
 import torch
-import torch.nn.utils.prune as prune
 import math
+import numpy as np
 
 
 def refresh_pruning(model):
@@ -34,14 +34,24 @@ def generate_mask(parameters: torch.Tensor, period: int):
     return mask
 
 
-def prune_network(model: torch.nn.Module, period: int, skip_first: bool = False):
+def generate_random_mask(parameters: torch.Tensor, rate: float):
+    mask = torch.zeros(parameters.numel(), device=parameters.device)
+    indices = np.random.choice(np.arange(len(mask)), int(len(mask) * rate), replace=False)
+    mask[indices] = 1
+    mask = mask.view(parameters.shape)
+    return mask
+
+
+def prune_network(model: torch.nn.Module, period: int, random_rate: float = 0., skip_first: bool = False):
     for m in model.modules():
         if skip_first and isinstance(m, torch.nn.Conv2d):
             if m.in_channels == 3:
                 continue
         if isinstance(m, torch.nn.Conv2d) or isinstance(m, torch.nn.Linear):
-            mask = generate_mask(m.weight, period)
-            # prune.custom_from_mask(module=m, name='weight', mask=mask)
+            if random_rate != 0.:
+                mask = generate_random_mask(m.weight, random_rate)
+            else:
+                mask = generate_mask(m.weight, period)
             apply_pruning(m, 'weight', mask)
 
 
