@@ -20,15 +20,17 @@ def apply_pruning(module, name, mask):
 
 
 def generate_mask(parameters: torch.Tensor, period: int):
-    prime = math.gcd(parameters.shape[-1], period) == 1
-    shape = list(parameters.shape)
+    squeezed_parameters = parameters.squeeze()
+    prime = math.gcd(squeezed_parameters.shape[-1], period) == 1
+    shape = list(squeezed_parameters.shape)
     if not prime:
         shape[-1] += 1
-    mask = torch.zeros(math.prod(shape), device=parameters.device)
+    mask = torch.zeros(math.prod(shape), device=squeezed_parameters.device)
     mask[::period] = 1
     mask = mask.view(shape)
     if not prime:
-        mask = mask.view(-1, mask.shape[-1])[:, :-1].view(parameters.shape)
+        mask = mask.view(-1, mask.shape[-1])[:, :-1].view(squeezed_parameters.shape)
+    mask = mask.view(parameters.shape)
     return mask
 
 
