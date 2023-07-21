@@ -151,13 +151,13 @@ def collate_fn(batch):
 
 train_loader = torch.utils.data.DataLoader(
     train, batch_size=args.batch_size, shuffle=True,
-    num_workers=min(30, os.cpu_count()), drop_last=True, pin_memory=True,
+    num_workers=min(10, os.cpu_count()), drop_last=True, pin_memory=True,
     collate_fn=collate_fn, persistent_workers=True)
 
 
 test_loader = torch.utils.data.DataLoader(
     test, batch_size=args.batch_size, shuffle=False,
-    num_workers=min(30, os.cpu_count()), pin_memory=True,
+    num_workers=min(10, os.cpu_count()), pin_memory=True,
     persistent_workers=True)
 
 # Prepare model, EMA and parameter sets
