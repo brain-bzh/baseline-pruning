@@ -44,7 +44,6 @@ from resnet import *
 
 from utils import ExponentialMovingAverage, RandomMixup, RandomCutmix
 from torch.utils.data.dataloader import default_collate
-import pruning_utils as pruning
 
 accelerator = Accelerator(split_batches=True)
 
@@ -69,9 +68,6 @@ parser.add_argument('--save-model', type=str, default="")
 parser.add_argument('--load-model', type=str, default="")
 parser.add_argument('--test-only', action="store_true")
 parser.add_argument('--no-warmup', action="store_true")
-parser.add_argument('--pruning-period', type=int, default=1)
-parser.add_argument('--pruning-random-rate', type=float, default=0.)
-parser.add_argument('--skip-first', action="store_true")
 args = parser.parse_args()
 args.steps = 10 * (args.steps // 10)
 if args.weight_decay < 0:
@@ -189,15 +185,6 @@ if args.load_model != "":
 if new_size:
     print("WARNING!!!! CHANGE OF SIZE WHEN LOADING MODEL!!!!")
 
-if args.pruning_period != 1 or args.pruning_random_rate != 0.:
-    pruning.prune_network(net,
-                          period=args.pruning_period,
-                          random_rate=args.pruning_random_rate,
-                          skip_first=args.skip_first)
-    remaining, total = pruning.count_remaining_parameters(net)
-    print(f'Remaining parameters: {remaining}, total parameters: {total}, remaining rate: {remaining / total * 100}%')
-
-
 if accelerator.is_main_process:
     summ = summary(net, input_size = input_size, verbose=0)
     accelerator.print("Total mult-adds: {:d} ({:,})".format(summ.total_mult_adds, summ.total_mult_adds))
@@ -239,8 +226,6 @@ peak, peak_step, peak_ema, peak_step_ema = 0, 0, 0, 0
 # test function
 def test():
     net.eval()
-    if args.pruning_period != 1 or args.pruning_random_rate != 0.:
-        pruning.refresh_pruning(net)
     correct = 0
     total = 0
     correct_ema = 0
@@ -309,8 +294,6 @@ for era in range(1 if args.adam or args.no_warmup else 0, args.eras + 1):
 
             accelerator.backward(loss)
             optimizer.step()
-            if args.pruning_period != 1 or args.pruning_random_rate != 0.:
-                pruning.refresh_pruning(net)
             if step % 32 == 0:
                 ema.update_parameters(net)
                 if era == 0:
@@ -353,9 +336,6 @@ accelerator.print("total time is {:4d}h{:02d}m".format(int(total_time / 3600), (
 accelerator.print("Peak perf is {:6.2f}% at epoch {:d} ({:6.2f}% at epoch {:d})".format(peak, peak_step, peak_ema, peak_step_ema))
 accelerator.print()
 accelerator.print()
-
-if args.pruning_period != 1 or args.pruning_random_rate != 0.:
-    pruning.remove_parameters(net)
 
 if args.save_model != "":
     torch.save(net.state_dict(), args.save_model + ".pt")
