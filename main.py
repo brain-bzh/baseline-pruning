@@ -42,6 +42,8 @@ from accelerate import Accelerator
 from torchinfo import summary
 import resnet
 from resnet import *
+import pre_pruned.abcpruner.abcpruner_models as abcpruner
+from pre_pruned.abcpruner.abcpruner_models import *
 
 from utils import ExponentialMovingAverage, RandomMixup, RandomCutmix
 from torch.utils.data.dataloader import default_collate
@@ -160,6 +162,8 @@ test_loader = torch.utils.data.DataLoader(
 # Prepare model, EMA and parameter sets
 if args.model in resnet.__all__:
     net = eval(args.model)(num_classes, large_input, args.width)
+elif args.model in abcpruner.__all__:
+    net = eval(args.model)()
 else:
     net = eval(args.model)
 
