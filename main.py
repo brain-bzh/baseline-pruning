@@ -40,6 +40,7 @@ import math
 import numpy as np
 from accelerate import Accelerator
 from torchinfo import summary
+import resnet
 from resnet import *
 
 from utils import ExponentialMovingAverage, RandomMixup, RandomCutmix
@@ -157,7 +158,10 @@ test_loader = torch.utils.data.DataLoader(
     persistent_workers=True)
 
 # Prepare model, EMA and parameter sets
-net = eval(args.model)(num_classes, large_input, args.width)
+if args.model in resnet.__all__:
+    net = eval(args.model)(num_classes, large_input, args.width)
+else:
+    net = eval(args.model)
 
 new_size = False
 if args.load_model != "":

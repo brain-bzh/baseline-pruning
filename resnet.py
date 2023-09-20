@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+__all__ = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
+           'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202']
+
 def Conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=dilation, groups=groups, bias=False, dilation=dilation)
 
