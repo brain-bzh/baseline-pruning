@@ -221,6 +221,10 @@ for x in modules:
     elif isinstance(x, nn.Conv2d):
         wd.append(x.weight)
         trained_parameters += x.weight.numel()
+        if hasattr(x, 'bias'):
+            if x.bias is not None:
+                wd.append(x.bias)
+                trained_parameters += x.bias.numel()
 assert(num_parameters==trained_parameters)
 
 # define criterion and aggregators
