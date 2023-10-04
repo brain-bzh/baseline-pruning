@@ -39,7 +39,7 @@ import time
 import math
 import numpy as np
 from accelerate import Accelerator
-from torchinfo import summary
+import thop
 import resnet
 from resnet import *
 
@@ -192,8 +192,8 @@ if new_size:
     print("WARNING!!!! CHANGE OF SIZE WHEN LOADING MODEL!!!!")
 
 if accelerator.is_main_process:
-    summ = summary(net, input_size = input_size, verbose=0)
-    accelerator.print("Total mult-adds: {:d} ({:,})".format(summ.total_mult_adds, summ.total_mult_adds))
+    macs, params = thop.profile(net, inputs=(torch.rand(input_size),), verbose=False)
+    accelerator.print("Total mult-adds: {:d} ({:,})".format(int(macs), int(params)))
 net, train_loader, test_loader = accelerator.prepare(net, train_loader, test_loader)
 #net.to(non_blocking=True, memory_format=torch.channels_last)
 num_parameters = int(torch.tensor([x.numel() for x in net.parameters()]).sum().item())
