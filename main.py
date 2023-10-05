@@ -36,13 +36,10 @@ import torchvision.transforms as transforms
 import argparse
 import random
 import time
-import math
 import numpy as np
 from accelerate import Accelerator
 import thop
-import resnet
-from resnet import *
-
+import models
 from utils import ExponentialMovingAverage, RandomMixup, RandomCutmix
 from torch.utils.data.dataloader import default_collate
 
@@ -158,8 +155,8 @@ test_loader = torch.utils.data.DataLoader(
     persistent_workers=True)
 
 # Prepare model, EMA and parameter sets
-if args.model in resnet.__all__:
-    net = eval(args.model)(num_classes, large_input, args.width)
+if args.model in models.__all__:
+    net = eval("models." + args.model)(num_classes=num_classes, large_input=large_input, width=args.width)
 else:
     net = eval(args.model)
 
@@ -194,6 +191,10 @@ if new_size:
 if accelerator.is_main_process:
     macs, params = thop.profile(net, inputs=(torch.rand(input_size),), verbose=False)
     accelerator.print("Total mult-adds: {:d} ({:,})".format(int(macs), int(params)))
+    if "repvgg" in args.model:
+        rep_net = models.repvgg_model_convert(model=net, save_path=None, do_copy=True)
+        macs, params = thop.profile(rep_net, inputs=(torch.rand(input_size),), verbose=False)
+        accelerator.print("Total mult-adds in reparameterized RepVGG: {:d} ({:,})".format(int(macs), int(params)))
 net, train_loader, test_loader = accelerator.prepare(net, train_loader, test_loader)
 #net.to(non_blocking=True, memory_format=torch.channels_last)
 num_parameters = int(torch.tensor([x.numel() for x in net.parameters()]).sum().item())
@@ -351,3 +352,8 @@ if args.save_model != "":
     torch.save(net.state_dict(), args.save_model + ".pt")
     torch.save(ema.module.state_dict(), args.save_model + "_ema.pt")
 
+    if "repvgg" in args.model:
+        rep_net = models.repvgg_model_convert(net, None, True)
+        torch.save(rep_net.state_dict(), args.save_model + "_rep.pt")
+        rep_ema = models.repvgg_model_convert(ema.module, None, True)
+        torch.save(rep_ema.state_dict(), args.save_model + "_rep_ema.pt")
