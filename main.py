@@ -42,6 +42,7 @@ import thop
 import models
 from utils import ExponentialMovingAverage, RandomMixup, RandomCutmix
 from torch.utils.data.dataloader import default_collate
+from models.convnext import LayerNorm
 
 accelerator = Accelerator(split_batches=True)
 
@@ -210,22 +211,22 @@ wd = []
 nowd = []
 trained_parameters = 0
 for x in modules:
-    if isinstance(x, nn.BatchNorm2d) or isinstance(x, nn.Linear):
-        if isinstance(x, nn.BatchNorm2d):
-            nowd.append(x.weight)
-            trained_parameters += x.weight.numel()
-        else:
-            wd.append(x.weight)
-            trained_parameters += x.weight.numel()
+    if isinstance(x, nn.BatchNorm2d) or isinstance(x, LayerNorm) or isinstance(x, nn.LayerNorm):
+        nowd.append(x.weight)
+        trained_parameters += x.weight.numel()
         nowd.append(x.bias)
         trained_parameters += x.bias.numel()
-    elif isinstance(x, nn.Conv2d):
+    elif isinstance(x, nn.Conv2d) or isinstance(x, nn.Linear):
         wd.append(x.weight)
         trained_parameters += x.weight.numel()
         if hasattr(x, 'bias'):
             if x.bias is not None:
                 wd.append(x.bias)
                 trained_parameters += x.bias.numel()
+    elif hasattr(x, 'gamma'):
+        if isinstance(x.gamma, nn.Parameter):
+            wd.append(x.gamma)
+            trained_parameters += x.gamma.numel()
 assert(num_parameters==trained_parameters)
 
 # define criterion and aggregators
